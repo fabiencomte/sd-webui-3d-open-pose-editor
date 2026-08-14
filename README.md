@@ -4,26 +4,48 @@ An extension of [stable-diffusion-webui](https://github.com/AUTOMATIC1111/stable
 
 ## Forge Classic 2.28.1 fork
 
-I liked this editor, but its ControlNet transfer no longer worked correctly in
-sd-webui-forge-classic 2.28.1. I migrated it with a little help from AI and am
-sharing the result in the hope that it will be useful to other people in the
+This fork targets
+[sd-webui-forge-classic 2.28.1](https://github.com/Haoming02/sd-webui-forge-classic/tree/neo)
+(Forge Neo) on Python 3.13 and Gradio 4.40.0.
+
+### Why this fork?
+
+I thought this 3D pose editor was a really cool and useful tool, but its
+ControlNet transfer no longer worked correctly on my Forge Classic 2.28.1
+installation. Rather than give up on it, I migrated the integration, fixed the
+problems I found along the way, and tested the result with a little help from
+AI. I hope this fork saves other Forge users some time and proves useful to the
 community.
 
-This branch uses Forge's current ControlNet unit setting and Gradio 4 image
-format, targets the actual input field of each ControlNet unit, bundles a
-Windows-safe frontend build, and validates messages exchanged with the editor
-iframe. MediaPipe assets are downloaded locally during installation so the
-offline editor does not silently depend on a CDN.
+The original extension was written for older WebUI, Gradio, and ControlNet UI
+contracts. This branch includes concrete fixes required to:
 
-Generate, Skip, and Interrupt remain entirely owned by Forge. This extension
-does not create replacement generation buttons or modify Forge's generation
-state; it only sends the rendered maps to the selected ControlNet inputs.
+- build the tab with Gradio 4's `js=` callback API instead of the removed
+  `_js=` argument;
+- read Forge's current `control_net_unit_count` setting so every configured
+  ControlNet unit is available as a destination;
+- accept Gradio 4 image values and target the real input image of each unit,
+  rather than accidentally selecting a generated preview or mask;
+- build the bundled frontend on Windows without illegal `?` characters in
+  generated filenames;
+- download MediaPipe files to the directory actually served by the extension,
+  using timeouts, atomic replacement, and SHA-256 verification;
+- restrict iframe messages to the expected editor window and origin;
+- restore the 3D scene even if rendering one of the output maps fails.
 
-The editor can create pose, depth, normal, and canny maps with a Krea 2
-checkpoint, but using a map during sampling still requires a control model that
-is compatible with that checkpoint. In particular, a generic SD 1.5/SDXL
-OpenPose ControlNet does not become Krea 2 compatible merely by using this
-editor.
+Generate, Skip, and Interrupt remain entirely owned by Forge. The extension
+does not reset Forge's generation state or create a second sampling lifecycle;
+it only renders maps and transfers them to the selected ControlNet inputs.
+
+### Krea 2 compatibility
+
+The editor itself can render pose, depth, normal, and canny maps while a Krea 2
+checkpoint is loaded. Applying one of those maps during sampling still requires
+a control model specifically compatible with the loaded checkpoint. A generic
+SD 1.5 or SDXL OpenPose ControlNet does not become compatible with Krea 2 merely
+because the map came from this editor.
+
+Compatibility with other Forge or WebUI versions is not guaranteed.
 
 # Preview
 
@@ -31,12 +53,14 @@ editor.
 
 # Installation
 
-1. Open the "Extension" tab of the WebUI
-2. Open the "Available" tab
-3. If your WebUI is out of date, change the "Extension index URL" to `https://raw.githubusercontent.com/AUTOMATIC1111/stable-diffusion-webui-extensions/master/index.json`
-4. Click the "Load from:" button
-5. Click the "Install" button of 3D Openpose Editor
-6. Open the "Installed" tab and click the "Apply and restart UI" button
+1. Open **Extensions** and then **Install from URL** in Forge.
+2. Enter this repository URL:
+
+   ```text
+   https://github.com/fabiencomte/sd-webui-3d-open-pose-editor
+   ```
+
+3. Click **Install**, then use **Apply and restart UI** from the Installed tab.
 
 # Feature
 
