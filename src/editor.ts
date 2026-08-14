@@ -1172,31 +1172,28 @@ export class BodyEditor {
         this.renderer.setClearColor(0x000000)
 
         const restoreHelper = this.changeHelper()
-
         const restoreTransfromControl = this.changeTransformControl()
         const restoreView = this.changeView()
+        let hiddenSkeleton: Map<Object3D, Object3D | null> | undefined
+        let result: Record<'pose' | 'depth' | 'normal' | 'canny', string>
 
-        const poseImage = this.Capture()
-
-        /// begin
-        const map = this.hideSkeleten()
-        const depthImage = this.CaptureDepth()
-        const normalImage = this.CaptureNormal()
-        const cannyImage = this.CaptureCanny()
-        this.showSkeleten(map)
-        /// end
-
-        this.renderer.setClearColor(0x000000, 0)
-        restoreHelper()
-
-        restoreTransfromControl()
-        restoreView()
-
-        const result = {
-            pose: poseImage,
-            depth: depthImage,
-            normal: normalImage,
-            canny: cannyImage,
+        try {
+            const poseImage = this.Capture()
+            hiddenSkeleton = this.hideSkeleten()
+            result = {
+                pose: poseImage,
+                depth: this.CaptureDepth(),
+                normal: this.CaptureNormal(),
+                canny: this.CaptureCanny(),
+            }
+        } finally {
+            if (hiddenSkeleton) {
+                this.showSkeleten(hiddenSkeleton)
+            }
+            this.renderer.setClearColor(0x000000, 0)
+            restoreHelper()
+            restoreTransfromControl()
+            restoreView()
         }
 
         sendToAll({

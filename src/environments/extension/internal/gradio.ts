@@ -38,10 +38,18 @@ export const waitForElementToBeRemoved = (parent: Element, selector: string) =>
 
 export const updateGradioImage = async (
     element: Element,
-    url: string,
+    image: ImageValue,
     name: string
 ) => {
-    const blob = await (await fetch(url)).blob()
+    const url = resolveImageUrl(image)
+    if (!url) {
+        throw new Error(`No usable URL was provided for ${name}`)
+    }
+    const response = await fetch(url)
+    if (!response.ok) {
+        throw new Error(`Unable to fetch ${name}: HTTP ${response.status}`)
+    }
+    const blob = await response.blob()
     const file = new File([blob], name)
     const dt = new DataTransfer()
     dt.items.add(file)
@@ -50,7 +58,10 @@ export const updateGradioImage = async (
         .querySelector<HTMLButtonElement>("button[aria-label='Clear']")
         ?.click()
     await waitForElementToBeRemoved(element, "button[aria-label='Clear']")
-    const input = element.querySelector<HTMLInputElement>("input[type='file']")!
+    const input = element.querySelector<HTMLInputElement>("input[type='file']")
+    if (!input) {
+        throw new Error(`Image upload input not found for ${name}`)
+    }
     input.value = ''
     input.files = dt.files
     input.dispatchEvent(
@@ -63,7 +74,11 @@ export const updateGradioImage = async (
 }
 
 export const switchGradioTab = (element: Element, index: number) => {
-    element.querySelectorAll('button')[index].click()
+    const button = element.querySelectorAll<HTMLButtonElement>('button')[index]
+    if (!button) {
+        throw new Error(`ControlNet tab ${index} does not exist`)
+    }
+    button.click()
 }
 
 export const openGradioAccordion = (element: Element) => {
@@ -76,3 +91,43 @@ export const openGradioAccordion = (element: Element) => {
     }
     labelElem.click()
 }
+
+export type ImageValue =
+    | string
+    | null
+    | undefined
+    | { url?: string | null; path?: string | null }
+
+export const resolveImageUrl = (image: ImageValue): string | null => {
+    if (typeof image === 'string') {
+        return image || null
+    }
+    if (!image || typeof image !== 'object') {
+        return null
+    }
+    return image.url || image.path || null
+}
+
+export const parseTargetIndex = (
+    target: string,
+    unitCount: number
+): number | null => {
+    if (target === '' || target === '-') {
+        return null
+    }
+    const index = Number(target)
+    return Number.isInteger(index) && index >= 0 && index < unitCount
+        ? index
+        : null
+}
+
+export const findControlNetInputImages = (controlNet: Element): Element[] =>
+    Array.from(controlNet.querySelectorAll('.tabitem')).map((tab) => {
+        const image = tab.querySelector(
+            '.cnet-input-image-group .cnet-image[data-testid="image"]'
+        )
+        if (!image) {
+            throw new Error('A ControlNet unit has no input image')
+        }
+        return image
+    })

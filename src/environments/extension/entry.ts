@@ -1,7 +1,11 @@
 import { getCurrentTime } from '../../utils/time'
 import { download } from '../../utils/transfer'
 import {
+    findControlNetInputImages,
+    ImageValue,
     openGradioAccordion,
+    parseTargetIndex,
+    resolveImageUrl,
     switchGradioTab,
     updateGradioImage,
     waitForElementToBeInDocument,
@@ -25,13 +29,13 @@ onUiLoaded(async () => {
 
     const sendToControlNet = async (
         container: Element,
-        poseImage: string | null,
+        poseImage: ImageValue,
         poseTarget: string,
-        depthImage: string | null,
+        depthImage: ImageValue,
         depthTarget: string,
-        normalImage: string | null,
+        normalImage: ImageValue,
         normalTarget: string,
-        cannyImage: string | null,
+        cannyImage: ImageValue,
         cannyTarget: string
     ) => {
         let element: Element | null | undefined =
@@ -55,60 +59,47 @@ onUiLoaded(async () => {
         } else {
             openGradioAccordion(element)
         }
-        await waitForElementToBeInDocument(element, 'div[data-testid="image"]')
-        const imageElems = element.querySelectorAll('div[data-testid="image"]')
+        await waitForElementToBeInDocument(
+            element,
+            '.cnet-input-image-group .cnet-image[data-testid="image"]'
+        )
+        const imageElems = findControlNetInputImages(element)
         const tabsElem = element.querySelector('.tab-nav')
-        if (poseImage && poseTarget != '' && poseTarget != '-') {
-            const tabIndex = Number(poseTarget)
+        const sendImage = async (
+            image: Parameters<typeof updateGradioImage>[1],
+            target: string,
+            name: string
+        ) => {
+            if (!resolveImageUrl(image)) {
+                return
+            }
+            const tabIndex = parseTargetIndex(target, imageElems.length)
+            if (tabIndex === null) {
+                if (target !== '' && target !== '-') {
+                    throw new Error(`Invalid ControlNet target: ${target}`)
+                }
+                return
+            }
             if (tabsElem) {
                 switchGradioTab(tabsElem, tabIndex)
             }
-            await updateGradioImage(imageElems[tabIndex], poseImage, 'pose.png')
+            await updateGradioImage(imageElems[tabIndex], image, `${name}.png`)
         }
-        if (depthImage && depthTarget != '' && depthTarget != '-') {
-            const tabIndex = Number(depthTarget)
-            if (tabsElem) {
-                switchGradioTab(tabsElem, tabIndex)
-            }
-            await updateGradioImage(
-                imageElems[tabIndex],
-                depthImage,
-                'depth.png'
-            )
-        }
-        if (normalImage && normalTarget != '' && normalTarget != '-') {
-            const tabIndex = Number(normalTarget)
-            if (tabsElem) {
-                switchGradioTab(tabsElem, tabIndex)
-            }
-            await updateGradioImage(
-                imageElems[tabIndex],
-                normalImage,
-                'normal.png'
-            )
-        }
-        if (cannyImage && cannyTarget != '' && cannyTarget != '-') {
-            const tabIndex = Number(cannyTarget)
-            if (tabsElem) {
-                switchGradioTab(tabsElem, tabIndex)
-            }
-            await updateGradioImage(
-                imageElems[tabIndex],
-                cannyImage,
-                'canny.png'
-            )
-        }
+        await sendImage(poseImage, poseTarget, 'pose')
+        await sendImage(depthImage, depthTarget, 'depth')
+        await sendImage(normalImage, normalTarget, 'normal')
+        await sendImage(cannyImage, cannyTarget, 'canny')
     }
 
     window.openpose3d = {
         sendTxt2img: async (
-            poseImage: string | null,
+            poseImage: ImageValue,
             poseTarget: string,
-            depthImage: string | null,
+            depthImage: ImageValue,
             depthTarget: string,
-            normalImage: string | null,
+            normalImage: ImageValue,
             normalTarget: string,
-            cannyImage: string | null,
+            cannyImage: ImageValue,
             cannyTarget: string
         ) => {
             const container = gradioApp().querySelector(
@@ -128,13 +119,13 @@ onUiLoaded(async () => {
             )
         },
         sendImg2img: async (
-            poseImage: string,
+            poseImage: ImageValue,
             poseTarget: string,
-            depthImage: string,
+            depthImage: ImageValue,
             depthTarget: string,
-            normalImage: string,
+            normalImage: ImageValue,
             normalTarget: string,
-            cannyImage: string,
+            cannyImage: ImageValue,
             cannyTarget: string
         ) => {
             const container = gradioApp().querySelector(
@@ -153,22 +144,30 @@ onUiLoaded(async () => {
                 cannyTarget
             )
         },
-        downloadImage: (image: string | null, name: string) => {
-            if (!image) {
+        downloadImage: (image: ImageValue, name: string) => {
+            const url = resolveImageUrl(image)
+            if (!url) {
                 return
             }
             const fileName = name + '_' + getCurrentTime() + '.png'
-            download(image, fileName)
+            download(url, fileName)
         },
     }
 
     InitMessageListener()
     AddMessageEventListener({
         MakeImages: async (args: Record<string, string>) => {
+            const allowedImages = new Set(['pose', 'depth', 'normal', 'canny'])
             for (const [name, url] of Object.entries(args)) {
+                if (!allowedImages.has(name) || typeof url !== 'string') {
+                    continue
+                }
                 const element = gradioApp().querySelector(
                     `#openpose3d_${name}_image`
-                )!
+                )
+                if (!element) {
+                    throw new Error(`Output image field not found: ${name}`)
+                }
                 await updateGradioImage(element, url, name + '.png')
             }
             const tabs = gradioApp().querySelector('#openpose3d_main')!
@@ -195,6 +194,7 @@ onUiLoaded(async () => {
     // await InvokeCommand('OutputWidth', 512)
     // await InvokeCommand('OutputHeight', 512)
     if (!isTabActive()) {
+        isPaused = true
         await InvokeCommand('Pause')
     }
 })

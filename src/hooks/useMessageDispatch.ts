@@ -76,9 +76,16 @@ export default function useMessageDispatch(
         async ({ origin, source, data }: MessageEvent) => {
             if (!data) return
 
-            const { method, payload, type } = data as IPostMessage
+            const { cmd, method, payload, type } = data as IPostMessage & {
+                cmd?: string
+            }
             // It is invalid message, not from webui extension.
-            if (type != 'call') return
+            if (
+                cmd !== 'openpose-3d' ||
+                type != 'call' ||
+                (source !== window.parent && source !== window.opener)
+            )
+                return
 
             console.log('method', method, payload)
 
@@ -94,9 +101,9 @@ export default function useMessageDispatch(
                 const eventHandler = dispatch[method]
                 if (typeof eventHandler === 'function') {
                     SEND_TO_SENDER = true
-                    const ret = eventHandler(...(payload ?? []))
-                    const value = ret instanceof Promise ? await ret : ret
                     try {
+                        const ret = eventHandler(...(payload ?? []))
+                        const value = ret instanceof Promise ? await ret : ret
                         sendToSender({
                             method,
                             type: 'return',
@@ -104,8 +111,9 @@ export default function useMessageDispatch(
                         })
                     } catch (error) {
                         console.log(error)
+                    } finally {
+                        SEND_TO_SENDER = false
                     }
-                    SEND_TO_SENDER = false
                 }
             } else if (method === 'GetAPIs') {
                 sendToSender({

@@ -53,8 +53,18 @@ def write_config_file() -> pathlib.Path:
     config_dir = root_path / "downloads"
     config_dir.mkdir(mode=0o755, parents=True, exist_ok=True)
     config_path = config_dir / "config.json"
-    config_path.write_text(json.dumps(consts))
+    config_path.write_text(json.dumps(consts), encoding="utf-8")
     return config_path
+
+
+def get_controlnet_unit_count(opts: typing.Any) -> int:
+    """Return Forge's configured unit count, with a safe standalone fallback."""
+    data = getattr(opts, "data", {})
+    try:
+        value = int(data.get("control_net_unit_count", 3))
+    except (AttributeError, TypeError, ValueError):
+        value = 3
+    return max(0, value)
 
 
 def on_ui_tabs():
@@ -66,12 +76,12 @@ def on_ui_tabs():
 def create_ui():
     try:
         from modules.shared import opts
-
-        cn_max: int = opts.control_net_max_models_num
-        use_online: bool = opts.openpose3d_use_online_version
-    except (ImportError, AttributeError):
+    except ImportError:
         cn_max = 0
         use_online = False
+    else:
+        cn_max = get_controlnet_unit_count(opts)
+        use_online = bool(getattr(opts, "openpose3d_use_online_version", False))
 
     if use_online:
         html_url = "https://zhuyu1997.github.io/open-pose-editor/"
@@ -159,37 +169,37 @@ def create_ui():
         None,
         send_cn_inputs,
         None,
-        _js="window.openpose3d.sendTxt2img",
+        js="window.openpose3d.sendTxt2img",
     )
     send_i2i.click(
         None,
         send_cn_inputs,
         None,
-        _js="window.openpose3d.sendImg2img",
+        js="window.openpose3d.sendImg2img",
     )
     pose_download.click(
         None,
         pose_image,
         None,
-        _js="(v) => window.openpose3d.downloadImage(v, 'pose')",
+        js="(v) => window.openpose3d.downloadImage(v, 'pose')",
     )
     depth_download.click(
         None,
         depth_image,
         None,
-        _js="(v) => window.openpose3d.downloadImage(v, 'depth')",
+        js="(v) => window.openpose3d.downloadImage(v, 'depth')",
     )
     normal_download.click(
         None,
         normal_image,
         None,
-        _js="(v) => window.openpose3d.downloadImage(v, 'normal')",
+        js="(v) => window.openpose3d.downloadImage(v, 'normal')",
     )
     canny_download.click(
         None,
         canny_image,
         None,
-        _js="(v) => window.openpose3d.downloadImage(v, 'canny')",
+        js="(v) => window.openpose3d.downloadImage(v, 'canny')",
     )
 
 

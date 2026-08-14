@@ -2,6 +2,29 @@
 
 An extension of [stable-diffusion-webui](https://github.com/AUTOMATIC1111/stable-diffusion-webui) to use [Online 3D Openpose Editor](https://github.com/ZhUyU1997/open-pose-editor).
 
+## Forge Classic 2.28.1 fork
+
+I liked this editor, but its ControlNet transfer no longer worked correctly in
+sd-webui-forge-classic 2.28.1. I migrated it with a little help from AI and am
+sharing the result in the hope that it will be useful to other people in the
+community.
+
+This branch uses Forge's current ControlNet unit setting and Gradio 4 image
+format, targets the actual input field of each ControlNet unit, bundles a
+Windows-safe frontend build, and validates messages exchanged with the editor
+iframe. MediaPipe assets are downloaded locally during installation so the
+offline editor does not silently depend on a CDN.
+
+Generate, Skip, and Interrupt remain entirely owned by Forge. This extension
+does not create replacement generation buttons or modify Forge's generation
+state; it only sends the rendered maps to the selected ControlNet inputs.
+
+The editor can create pose, depth, normal, and canny maps with a Krea 2
+checkpoint, but using a map during sampling still requires a control model that
+is compatible with that checkpoint. In particular, a generic SD 1.5/SDXL
+OpenPose ControlNet does not become Krea 2 compatible merely by using this
+editor.
+
 # Preview
 
 ![Preview](https://user-images.githubusercontent.com/42905588/227674599-21610711-7276-413c-aa36-cc5108e74dc3.png)

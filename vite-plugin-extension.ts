@@ -1,22 +1,10 @@
 import { type UserConfig, type Plugin } from 'vite'
 import { type OutputOptions } from 'rollup'
 import { resolve } from 'path'
-import { rename } from 'fs/promises'
 
 export default function (): Plugin {
     return {
         name: 'extension',
-        async writeBundle(options, bundle) {
-            for (const key in bundle) {
-                const b = bundle[key]
-                const type = b.type
-                if (type !== 'chunk' && type !== 'asset') {
-                    continue
-                }
-                const fileName = resolve(options.dir, b.fileName)
-                await rename(fileName, fileName.replace(/\?[0-9a-f]+$/, ''))
-            }
-        },
         config(config, env) {
             const common: UserConfig = {
                 base: './',
@@ -33,12 +21,11 @@ export default function (): Plugin {
                 },
                 build: {
                     target: 'ESNext',
-                    emptyOutDir: false,
                     rollupOptions: {
                         output: {
-                            entryFileNames: '[name].js?[hash]',
-                            chunkFileNames: '[name].js?[hash]',
-                            assetFileNames: '[name][extname]?[hash]',
+                            entryFileNames: '[name]-[hash].js',
+                            chunkFileNames: '[name]-[hash].js',
+                            assetFileNames: '[name]-[hash][extname]',
                         },
                     },
                 },
@@ -47,6 +34,7 @@ export default function (): Plugin {
                 case 'extension-editor':
                     {
                         common.build.outDir = 'pages'
+                        common.build.emptyOutDir = true
                         common.build.rollupOptions.input = {
                             index: resolve(__dirname, 'index.html'),
                         }
@@ -55,6 +43,7 @@ export default function (): Plugin {
                 case 'extension-entry':
                     {
                         common.build.outDir = 'javascript'
+                        common.build.emptyOutDir = true
                         common.build.rollupOptions.input = {
                             index: resolve(
                                 __dirname,
@@ -65,6 +54,7 @@ export default function (): Plugin {
                         const output = common.build.rollupOptions
                             .output as OutputOptions
                         output.format = 'iife'
+                        output.entryFileNames = '[name].js'
                     }
 
                     break

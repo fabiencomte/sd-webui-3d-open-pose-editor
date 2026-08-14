@@ -9,8 +9,30 @@ try {
     const url = params.get('config')
     if (url?.startsWith('/')) {
         const response = await fetch(url)
+        if (!response.ok) {
+            throw new Error(
+                `Unable to load local asset config: ${response.status}`
+            )
+        }
         const config = await response.json()
-        Object.assign(files, config['assets'])
+        const allowedNames = new Set([
+            ...Object.keys(files),
+            'pose_landmark_full.tflite',
+            'pose_web.binarypb',
+            'pose_solution_packed_assets.data',
+            'pose_solution_simd_wasm_bin.wasm',
+            'pose_solution_packed_assets_loader.js',
+            'pose_solution_simd_wasm_bin.js',
+        ])
+        for (const [name, assetUrl] of Object.entries(config?.assets ?? {})) {
+            if (
+                allowedNames.has(name) &&
+                typeof assetUrl === 'string' &&
+                assetUrl.startsWith('/file=')
+            ) {
+                files[name] = assetUrl
+            }
+        }
     }
 } catch (error) {
     console.error(error)
